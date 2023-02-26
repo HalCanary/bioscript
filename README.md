@@ -1,0 +1,3 @@
+Copyright 2023 Hal W Canary III
+
+ALL RIGHTS RESERVED.
