@@ -21,7 +21,7 @@ DEFAULT_LOG_LEVEL = 'INFO'
 
 # TODO (halcanary): remove DEFAULT_GENUS and DEFAULT_INPUT_FILE.
 # TODO (halcanary): can we get GENUS from INPUT_FILE name?
-# TODO (halcanary): write unit tests for all functions apart from `main()`
+# TODO (halcanary): should we handle stdin and stdout?
 
 ################################################################################
 
@@ -103,7 +103,7 @@ def get_values_matching_genus(given_genus, fasta_source):
     return count, dict(all_values)
 
 
-def process_values(values):
+def process_values(species, values):
     best_description, best_sequence, best_score = None, None, (-1, -1, -1, -1)
     for accession, description, sequence in values:
         # score is a comparable 4-tuple of non-negative numbers.
@@ -113,6 +113,8 @@ def process_values(values):
                 len(sequence))
         if score >= best_score:
             best_description, best_sequence, best_score = description, sequence, score
+    if best_description is None or best_sequence is None:
+        raise Exception('Unexpected problem with species %r.' % species)
     return (best_description, best_sequence)
 
 
@@ -146,9 +148,10 @@ def main(given_genus, input_file, pathmod):
     with open(output_file, 'w') as o:
         # Sort output by sepcies for reproducability.
         for species, values in sorted(all_values.items()):
-            best_description, best_sequence = process_values(values)
-            if not best_description or not best_sequence:
-                logging.error('Unexpected problem with species %r.', species)
+            try:
+                best_description, best_sequence = process_values(species, values)
+            except Exception as e:
+                logging.error(e)
                 continue
             print_fasta_description(o, best_description, best_sequence)
             if logging.getLogger().isEnabledFor(logging.DEBUG):

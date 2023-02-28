@@ -41,6 +41,18 @@ Biology Scripts
 
 * * *
 
+## Unit Testing
+
+To execute all tests:
+
+```
+./test_bioscript.py
+```
+
+Unit tests require Python 3.x (for package `io`).
+
+* * *
+
 ## Running `New_Database_One_Sequence_per_Species.py`
 
 Suppose the input file is `~/Desktop/foobar.fasta` and the genus to be filterted is `Foobar`.
