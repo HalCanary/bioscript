@@ -9,21 +9,15 @@ Biology Scripts
 
 ## Install
 
-1.  Install Python 2.7.x or 3.x (3.x preferrably). <https://www.python.org/downloads/>
+1.  Install Python (version 3.) <https://www.python.org/downloads/>
 
     Verify that the command
-
-    ```
-    python --version
-    ```
-
-    or
 
     ```
     python3 --version
     ```
 
-    works.  Remember which one and use that when running the scripts.
+    works.
 
 2.  Clone this repo:
 
@@ -49,18 +43,16 @@ To execute all tests:
 ./test_bioscript.py
 ```
 
-Unit tests require Python 3.x (for package `io`).
-
 * * *
 
-## Running `New_Database_One_Sequence_per_Species.py`
+## Running `bestSequenceEachSpecies.py`
 
 Suppose the input file is `~/Desktop/foobar.fasta` and the genus to be filterted is `Foobar`.
 
 Run:
 
 ```
-python ~/bioscript/New_Database_One_Sequence_per_Species.py Foobar ~/Desktop/foobar.fasta _new
+~/bioscript/bestSequenceEachSpecies.py -g Foobar ~/Desktop/foobar.fasta -o ~/Desktop/foobar_new.fasta
 ```
 
 This should write to a file `~/Desktop/foobar_new.fasta`.
