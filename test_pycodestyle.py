@@ -21,6 +21,10 @@
 # SOFTWARE.
 
 import os
-import pycodestyle
+try:
+    import pycodestyle
+except ImportError:
+    print('Try `python3 -m pip install pycodestyle`')
+    raise
 
 pycodestyle.StyleGuide(paths=['--max-line-length=99']).check_files([os.path.dirname(__file__)])
