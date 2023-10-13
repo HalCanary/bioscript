@@ -4,12 +4,18 @@
 # Use of this program is governed by contents of the LICENSE file.
 
 import collections
+import glob
 import io
 import logging
+import os
 import random
+import shutil
+import sys
+import tempfile
 import unittest
 
 import bestSequenceEachSpecies as bioscript
+import concat_fasta as concat
 
 
 TestSequence = collections.namedtuple(
@@ -135,6 +141,25 @@ class NewDatabaseOneSequencePerSpeciesTestCase(unittest.TestCase):
         self.assertTrue(v[1][1] > v[0][1])
         self.assertTrue(v[2][1] > v[0][1])
         self.assertTrue(v[2][1] > v[1][1])
+
+
+class ConcatTestCase(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.directory = tempfile.mkdtemp()
+        for idx, t in enumerate([TESTDATA_1, TESTDATA_2, TESTDATA_3]):
+            with open(os.path.join(cls.directory, 'data%d.fasta' % idx), 'w') as o:
+                bioscript.print_fasta_description(o, t.description, t.sequence)
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.directory)
+
+    def test_concat(self):
+        files = glob.glob(os.path.join(self.directory, '*'))
+        buffer = io.StringIO()
+        concat.concat(files, buffer, logging.getLogger())
+        self.assertEqual(3343, len(buffer.getvalue()))
 
 
 if __name__ == '__main__':
