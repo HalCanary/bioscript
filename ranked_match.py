@@ -28,109 +28,94 @@ CSV file format:
    27,   40,   17,   4
    1,    1,    3,    34
    3,    19,   7,    4
-
-To Run:
-
-    Lindsays-MBP:~ Lindsay$ .../ranked_match.py  PATH_TO_CSV_FILE
 '''
 
 
+import argparse
+import collections
 import csv
 import sys
 import os
 
 
-class Student:
-    def __init__(self, name, prefs, rank):
-        self.name = name
-        self.prefs = [p for p in prefs if p]
-        self.rank = rank
-        self.topic = ''
-        self.choice = 0
-
-    def __str__(self):
-        return '%s %r' % (self.name, self.prefs)
+Result = collections.namedtuple('Result', ['name', 'topic', 'choice'])
 
 
 def parseInteger(s):
-    s = s.replace('\xCA', '').strip()
+    s = s.strip('\uFEFF').strip().strip('\xCA')
     try:
         return int(s)
     except ValueError:
-        if len(s):
-            raise
-        return None
+        return s if len(s) else None
 
 
 def parseCSVFile(infile):
     reader = csv.reader(infile)
-    names = [n.strip().strip('\uFEFF') for n in next(reader)]
-    num_names = len(names)
-    inverse_prefs = []
+    data = []
     for line in reader:
-        assert len(line) <= num_names
         line = [parseInteger(x) for x in line]
-        if not any(line):
-            continue
-        if len(line) < num_names:
-            line.extend([None for x in range(len(line), num_names)])
-        inverse_prefs.append(line)
-    return (names, inverse_prefs)
+        if line:
+            data.append(line)
+    return data
 
 
-def rangedMatch(names, inverse_prefs):
-    all_prefs = [list(x) for x in zip(*inverse_prefs)]
+def getPrefs(csv_data):
+    allPrefs = [[] for n in csv_data[0]]
+    for idx, prefs in enumerate(allPrefs):
+        for row in csv_data[1:]:
+            if idx < len(row):
+                topic = row[idx]
+                if topic is not None:
+                    prefs.append(topic)
+    return csv_data[0], allPrefs
 
-    number_topics = max(topic for prefs in all_prefs for topic in prefs if topic is not None)
 
-    assert number_topics >= len(all_prefs[0])
-
-    assert all(topic is None or topic > 0 for prefs in all_prefs for topic in prefs)
-
-    for prefs in all_prefs:
-        prefs.extend([None for x in range(len(prefs), number_topics)])
-
-    students = [Student(name, prefs, rank)
-                for rank, (name, prefs) in enumerate(zip(names, all_prefs))]
-
-    assignments = dict((i, None) for i in range(1, number_topics + 1))
-
-    while any(student.topic == '' for student in students):
-        for student in students:
-            if student.topic != '':
+def rankedMatch(names, allPrefs):
+    assignments = dict()
+    N = len(names)
+    topics = ['' for _ in range(N)]
+    choices = [0 for _ in range(N)]
+    while any(topic == '' for topic in topics):
+        for idx in range(N):
+            if topics[idx] != '':
                 continue
-            if not student.prefs:
-                student.topic = None
+            prefs = allPrefs[idx]
+            if not prefs:
+                topics[idx] = None
                 continue
-            topic = student.prefs.pop(0)
-            student.choice += 1
-            current_student = assignments[topic]
+            topic = prefs.pop(0)
+            choices[idx] += 1
+            current_student = assignments.get(topic)
             if current_student is None:
-                assignments[topic] = student
-                student.topic = topic
-            elif current_student.rank > student.rank:
+                assignments[topic] = idx
+                topics[idx] = topic
+            elif current_student > idx:
                 # less rank is better
-                assignments[topic] = student
-                student.topic = topic
-                current_student.topic = ''
+                assignments[topic] = idx
+                topics[idx] = topic
+                topics[current_student] = ''
+    return [Result(n, t, c) for n, t, c in zip(names, topics, choices)]
 
-    return students
+
+def print_students(output, students):
+    name_length = max(len(s.name) for s in students)
+    for student in students:
+        output.write('%-*s topic=%r (ranked=%d)\n' % (
+              name_length, student.name, student.topic, student.choice))
 
 
 def main():
-    if len(sys.argv) < 2:
-        sys.stdout.write("Usage:\n\t%s CSV_FILE_PATH\n" % (
-            os.path.basename(sys.argv[0])))
-        sys.stdout.write(__doc__ + '\n')
-        exit(1)
-
-    with open(sys.argv[1], 'r') as infile:
-        names, inverse_prefs = parseCSVFile(infile)
-    students = rangedMatch(names, inverse_prefs)
-    name_length = max(len(s.name) for s in students)
-    for student in students:
-        sys.stdout.write('%-*s topic=%r (ranked=%d)\n' % (
-              name_length, student.name, student.topic, student.choice))
+    argparser = argparse.ArgumentParser(
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description=__doc__)
+    argparser.add_argument(
+        'CSV_FILE',
+        type=argparse.FileType('r'),
+        help='Path of CSV file to read.')
+    args = argparser.parse_args(sys.argv[1:])
+    data = parseCSVFile(args.CSV_FILE)
+    args.CSV_FILE.close()
+    print_students(sys.stdout, rankedMatch(*getPrefs(data)))
 
 
 if __name__ == '__main__':

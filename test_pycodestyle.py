@@ -20,11 +20,23 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+import logging
 import os
+import unittest
+
 try:
     import pycodestyle
 except ImportError:
     print('Try `python3 -m pip install pycodestyle`')
     raise
 
-pycodestyle.StyleGuide(paths=['--max-line-length=99']).check_files([os.path.dirname(__file__)])
+
+class StyleTestCase(unittest.TestCase):
+    def test_python_style(self):
+        pycodestyle.StyleGuide(
+            paths=['--max-line-length=99']).check_files([os.path.dirname(__file__)])
+
+
+if __name__ == '__main__':
+    logging.basicConfig(format='%(levelname)s:  %(message)s', level='WARNING')
+    unittest.main()
