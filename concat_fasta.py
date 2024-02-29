@@ -87,9 +87,9 @@ def concat(infilenamess, outfile, logger):
             for (description, sequence) in parse_fasta_format(f):
                 description = os.path.basename(filename) + " : " + description
                 print_fasta_description(outfile, description, sequence)
-                logger.debug(description, len(sequence))
+                logger.debug('%s + %d', description, len(sequence))
                 count += 1
-    logger.info('sequence count:', count)
+    logger.info('sequence count: %d', count)
 
 
 def parse_args(argv):
