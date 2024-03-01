@@ -101,7 +101,7 @@ def parse_args(argv):
         metavar='IN_FILES',
         type=str,
         nargs='+',
-        help='Path of FASTA file to read. (default: STDIN)')
+        help='Path of FASTA file(s) to read. Required.')
     parser.add_argument(
         '-o',
         '--outfile',

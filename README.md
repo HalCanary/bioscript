@@ -54,6 +54,19 @@ To execute all tests:
 
 * * *
 
+## Running `concat_fasta.py`
+
+After installing the `bioscript` repository, execute the following, (after
+changing the filenames appropriately:
+
+```
+~/bioscript/concat_fasta.py \
+    --outfile ~/Desktop/EnvUn_SP24_Round1.fasta \
+    ~/Desktop/SP24_Round1_Environmental_Sequences_seq/*.seq
+```
+
+* * *
+
 ## Running `bestSequenceEachSpecies.py`
 
 Suppose the input file is `~/Desktop/foobar.fasta` and the genus to be filterted is `Foobar`.
