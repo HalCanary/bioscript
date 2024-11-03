@@ -74,7 +74,11 @@ Suppose the input file is `~/Desktop/foobar.fasta` and the genus to be filterted
 Run:
 
 ```
-~/bioscript/bestSequenceEachSpecies.py -g Foobar ~/Desktop/foobar.fasta -o ~/Desktop/foobar_new.fasta
+~/bioscript/bestSequenceEachSpecies.py \
+    -g Foobar \
+    --count 2 \
+    ~/Desktop/foobar.fasta \
+    -o ~/Desktop/foobar_new.fasta
 ```
 
 This should write to a file `~/Desktop/foobar_new.fasta`.

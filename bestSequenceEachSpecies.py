@@ -93,7 +93,7 @@ def process_sequence_description(description):
     "ACCESSION GENUS EPITHET [MORE...]"
     New description is:
     "GENUS_EPITHET_ACCESSION [MORE...] ACCESSION"
-        
+
         If "strain" present:
     "ACCESSION GENUS ...strain [MORE...]"
     New description is:
@@ -103,7 +103,8 @@ def process_sequence_description(description):
     if m is not None:
         accession, genus, epithet, extra1, strain, extra2 = m.groups()
         species = '_'.join([genus, epithet, strain.replace(' ', '_')])
-        new_description = ' '.join([species, (extra1 if extra1 else '') + extra2.strip(), accession])
+        new_description = ' '.join(
+            [species, (extra1 if extra1 else '') + extra2.strip(), accession])
     else:
         fields = description.split()
         if len(fields) < 3:
@@ -154,10 +155,12 @@ def get_best_sequence_each_species(infile, outfile, genus, logger, count=1):
             continue
         logger.debug('good match: %s', description)
 
-        speciesSequenceListMap[info.species].append((info.accession, info.description, sequence))
+        speciesSequenceListMap[info.species].append(
+            (info.accession, info.description, sequence))
 
     if len(speciesSequenceListMap) == 0:
-        raise RuntimeError('None of %d sequences match given genus %r.' % (sourceCount, genus))
+        raise RuntimeError(
+            'None of %d sequences match given genus %r.' % (sourceCount, genus))
 
     if logger.isEnabledFor(logging.INFO):
         matchCount = sum(len(v) for v in speciesSequenceListMap.values())
@@ -203,6 +206,7 @@ def parse_args(argv):
         default='info',
         help='Verbosity level. (default: info)')
     parser.add_argument(
+        '-c',
         '--count',
         type=int,
         default=1,
@@ -214,9 +218,11 @@ def parse_args(argv):
 
 def main():
     args = parse_args(sys.argv[1:])
-    logging.basicConfig(format='%(levelname)s:  %(message)s', level=args.loglevel.upper())
+    logging.basicConfig(format='%(levelname)s:  %(message)s',
+                        level=args.loglevel.upper())
     try:
-        get_best_sequence_each_species(args.INFILE, args.outfile, args.genus, logging.getLogger(), args.count)
+        get_best_sequence_each_species(
+            args.INFILE, args.outfile, args.genus, logging.getLogger(), args.count)
     except Exception as e:
         logging.error(e)
         sys.exit(1)
