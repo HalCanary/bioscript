@@ -181,6 +181,7 @@ def get_best_sequence_each_species(infile, outfile, genus, logger, count=1):
         matchCount = sum(len(v) for v in speciesSequenceListMap.values())
         logger.info('Matched %d of %d sequences.', matchCount, sourceCount)
 
+    taxaTotalCount = 0
     # Sort output by sepcies for reproducability.
     for species, strainMap in sorted(speciesSequenceListMap.items()):
         values = []
@@ -193,9 +194,11 @@ def get_best_sequence_each_species(infile, outfile, genus, logger, count=1):
                                (species, e)) from e
         for accession, description, sequence in best:
             print_fasta_description(outfile, description, sequence)
+            taxaTotalCount += 1
         logger.debug('Best of %3d for species %r', len(values), species)
 
-    logger.info('%d species processed.', len(speciesSequenceListMap))
+    logger.info('%d different species processed.', len(speciesSequenceListMap))
+    logger.info('%d total taxa output.', taxaTotalCount)
 
 
 def parse_args(argv):
