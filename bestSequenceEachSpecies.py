@@ -31,8 +31,10 @@ import argparse
 import collections
 import logging
 import os
+import re
 import sys
 
+_strainRe = re.compile(r'^(\S+) (\S+) (\S+) ((?:.* )?)(strain .*?)( 16S .*)$')
 
 ###################################################################################################
 # FASTA file format parsing functions
@@ -90,16 +92,26 @@ def process_sequence_description(description):
     Expect description to be a string of the form:
     "ACCESSION GENUS EPITHET [MORE...]"
     New description is:
-    "GENUS_EPITHET ACCESSION [MORE...]"
+    "GENUS_EPITHET_ACCESSION [MORE...] ACCESSION"
+        
+        If "strain" present:
+    "ACCESSION GENUS ...strain [MORE...]"
+    New description is:
+    "GENUS_..._strain [MORE...] ACCESSION"
     '''
-    fields = description.split()
-    if len(fields) < 3:
-        # `description` is missing an epithet; this is an error.
-        raise ValueError('Unable to parse description: %r' % description)
-    (accession, genus, epithet), extra = fields[:3], ' '.join(fields[3:])
-
-    species = '%s_%s' % (genus, epithet)
-    new_description = ' '.join([species, accession, extra])
+    m = _strainRe.match(description)
+    if m is not None:
+        accession, genus, epithet, extra1, strain, extra2 = m.groups()
+        species = '_'.join([genus, epithet, strain.replace(' ', '_')])
+        new_description = ' '.join([species, (extra1 if extra1 else '') + extra2.strip(), accession])
+    else:
+        fields = description.split()
+        if len(fields) < 3:
+            # `description` is missing an epithet; this is an error.
+            raise ValueError('Unable to parse description: %r' % description)
+        (accession, genus, epithet), extra = fields[:3], ' '.join(fields[3:])
+        species = '_'.join([genus, epithet, accession])
+        new_description = ' '.join([species, extra, accession])
     return ProcessedDescription(genus, species, accession, new_description)
 
 
@@ -116,25 +128,19 @@ def get_score(accession, description, sequence):
     )
 
 
-def get_best_sequence(values):
+def get_best_sequence(values, count=1):
     '''
     @param values nonempty list of (accession, description, sequence) tuples.
-    @return the best (description, sequence) pair based on `get_score`
+    @return list of the best count (accession, description, sequence) tuples based on `get_score`
     @raises ValueError if no values are provided
     '''
-    best_description, best_sequence, best_score = None, None, (-1, -1, -1, -1)
     if not values:
         raise ValueError('No sequences provided')
-    for accession, description, sequence in values:
-        score = get_score(accession, description, sequence)
-        if score >= best_score:
-            best_description, best_sequence, best_score = description, sequence, score
-    assert best_description is not None and best_sequence is not None
-    return (best_description, best_sequence)
+    return sorted(values, key=lambda v: get_score(*v))[-min(len(values), count):]
 
 
 # TODO(halcanry): Add unit tests for this function.
-def get_best_sequence_each_species(infile, outfile, genus, logger):
+def get_best_sequence_each_species(infile, outfile, genus, logger, count=1):
     if genus:
         logger.info('Filtering by Genus %r', genus)
 
@@ -160,10 +166,11 @@ def get_best_sequence_each_species(infile, outfile, genus, logger):
     # Sort output by sepcies for reproducability.
     for species, values in sorted(speciesSequenceListMap.items()):
         try:
-            best_description, best_sequence = get_best_sequence(values)
+            best = get_best_sequence(values, count=count)
         except Exception as e:
             raise RuntimeError("Error with species %s" % species) from e
-        print_fasta_description(outfile, best_description, best_sequence)
+        for accession, description, sequence in best:
+            print_fasta_description(outfile, description, sequence)
         logger.debug('Best of %3d for species %r', len(values), species)
 
     logger.info('%d species processed.', len(speciesSequenceListMap))
@@ -195,6 +202,11 @@ def parse_args(argv):
         choices=['debug', 'info', 'warning'],
         default='info',
         help='Verbosity level. (default: info)')
+    parser.add_argument(
+        '--count',
+        type=int,
+        default=1,
+        help='How many top matches. (default: 1)')
     return parser.parse_args(argv)
 
 ###################################################################################################
@@ -204,7 +216,7 @@ def main():
     args = parse_args(sys.argv[1:])
     logging.basicConfig(format='%(levelname)s:  %(message)s', level=args.loglevel.upper())
     try:
-        get_best_sequence_each_species(args.INFILE, args.outfile, args.genus, logging.getLogger())
+        get_best_sequence_each_species(args.INFILE, args.outfile, args.genus, logging.getLogger(), args.count)
     except Exception as e:
         logging.error(e)
         sys.exit(1)
