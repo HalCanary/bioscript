@@ -34,7 +34,13 @@ import os
 import re
 import sys
 
-_strainRe = re.compile(r'^(\S+) (\S+) (\S+) ((?:.* )?)(strain .*?)( 16S .*)$')
+_noSpeciesRe = re.compile(r'^\S+ \S+ sp. ')
+_strainRe = re.compile(
+    r'^(\S+) (\S+) (\S+) ((?:.* )?)(strain .*?)( 16S(?: .*)?)$')
+_strainRe2 = re.compile(
+    r'^(\S+) (\S+) (\S+) ((?:.* )?)\((strain .*?)\)((?: .*)?)$')
+_strainRe3 = re.compile(
+    r'^(\S+) (\S+) (\S+) ((?:.* )?)(strain \S+(?: \S+)?)((?: .*)??)$')
 
 ###################################################################################################
 # FASTA file format parsing functions
@@ -84,7 +90,7 @@ def split_str(s, n):
 
 
 ProcessedDescription = collections.namedtuple(
-    'ProcessedDescription', ['genus', 'species', 'accession', 'description'])
+    'ProcessedDescription', ['genus', 'species', 'strain', 'accession', 'description'])
 
 
 def process_sequence_description(description):
@@ -100,20 +106,25 @@ def process_sequence_description(description):
     "GENUS_..._strain [MORE...] ACCESSION"
     '''
     m = _strainRe.match(description)
+    if m is None:
+        m = _strainRe2.match(description)
+    if m is None:
+        m = _strainRe3.match(description)
     if m is not None:
         accession, genus, epithet, extra1, strain, extra2 = m.groups()
-        species = '_'.join([genus, epithet, strain.replace(' ', '_')])
-        new_description = ' '.join(
-            [species, (extra1 if extra1 else '') + extra2.strip(), accession])
+        species = genus + '_' + epithet
+        strain = species + '_' + strain.replace(' ', '_')
+        extra = (extra1 if extra1 else '') + extra2.strip()
     else:
         fields = description.split()
         if len(fields) < 3:
             # `description` is missing an epithet; this is an error.
             raise ValueError('Unable to parse description: %r' % description)
         (accession, genus, epithet), extra = fields[:3], ' '.join(fields[3:])
-        species = '_'.join([genus, epithet, accession])
-        new_description = ' '.join([species, extra, accession])
-    return ProcessedDescription(genus, species, accession, new_description)
+        species = genus + '_' + epithet
+        strain = species + '_' + accession
+    new_description = ' '.join([strain, extra, accession])
+    return ProcessedDescription(genus, species, strain, accession, new_description)
 
 
 def get_score(accession, description, sequence):
@@ -145,9 +156,13 @@ def get_best_sequence_each_species(infile, outfile, genus, logger, count=1):
     if genus:
         logger.info('Filtering by Genus %r', genus)
 
-    sourceCount, speciesSequenceListMap = 0, collections.defaultdict(list)
+    sourceCount, speciesSequenceListMap = 0, collections.defaultdict(
+        lambda: collections.defaultdict(list))
     for (description, sequence) in parse_fasta_format(infile):
         sourceCount += 1
+        if _noSpeciesRe.match(description):
+            logger.debug('NO SPECIES:  %s', description)
+            continue
         info = process_sequence_description(description)
 
         if genus and info.genus != genus:
@@ -155,7 +170,7 @@ def get_best_sequence_each_species(infile, outfile, genus, logger, count=1):
             continue
         logger.debug('good match: %s', description)
 
-        speciesSequenceListMap[info.species].append(
+        speciesSequenceListMap[info.species][info.strain].append(
             (info.accession, info.description, sequence))
 
     if len(speciesSequenceListMap) == 0:
@@ -167,11 +182,15 @@ def get_best_sequence_each_species(infile, outfile, genus, logger, count=1):
         logger.info('Matched %d of %d sequences.', matchCount, sourceCount)
 
     # Sort output by sepcies for reproducability.
-    for species, values in sorted(speciesSequenceListMap.items()):
+    for species, strainMap in sorted(speciesSequenceListMap.items()):
+        values = []
+        for sequence, strainValues in sorted(strainMap.items()):
+            values.extend(get_best_sequence(strainValues))
         try:
             best = get_best_sequence(values, count=count)
         except Exception as e:
-            raise RuntimeError("Error with species %s" % species) from e
+            raise RuntimeError("Error with species %s. %r" %
+                               (species, e)) from e
         for accession, description, sequence in best:
             print_fasta_description(outfile, description, sequence)
         logger.debug('Best of %3d for species %r', len(values), species)

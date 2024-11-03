@@ -24,13 +24,14 @@ TestSequence = collections.namedtuple(
         'description', 'fasta', 'species', 'translated'])
 
 
-def makeTestSequence(accession, genus, epithet, extra, sequence):
-    description = ' '.join([accession, genus, epithet, extra])
-    #print('~~', description, file=sys.stderr)
+def makeTestSequence(accession, genus, epithet, strain, extra, sequence):
+    description = ' '.join([accession, genus, epithet, strain, extra])
+    # print('~~', description, file=sys.stderr)
     fasta = '>%s\n%s\n\n' % (description, bioscript.split_str(sequence, 70))
-    species = genus + '_' + (epithet.replace(' ', '_'))
-    translated = ' '.join([species, extra, accession])
-    #print('->', translated, file=sys.stderr)
+    species = genus + '_' + epithet
+    strain = species + '_' + strain.replace(' ', '_')
+    translated = ' '.join([strain, extra, accession])
+    # print('->', translated, file=sys.stderr)
     return TestSequence(accession, genus, epithet, extra, sequence,
                         description, fasta, species, translated)
 
@@ -50,20 +51,21 @@ def fasta_string(sequences):
 
 def run_test_get_best_sequence_each_species(data, genus):
     buffer = io.StringIO()
-    bioscript.get_best_sequence_each_species(io.StringIO(data), buffer, genus, logging.getLogger())
+    bioscript.get_best_sequence_each_species(
+        io.StringIO(data), buffer, genus, logging.getLogger())
     return buffer.getvalue()
 
 
 TESTDATA_1 = makeTestSequence(
-    'KF787109.1', 'Arthrobacter', 'nicotianae strain BSc 4',
+    'KF787109.1', 'Arthrobacter', 'nicotianae', 'strain BSc 4',
     '16S ribosomal RNA gene, partial sequence', makeRandomSequence(1))
 
 TESTDATA_2 = makeTestSequence(
-    'KP684097.1', 'Arthrobacter', 'nicotianae strain BSc 4',
+    'KP684097.1', 'Arthrobacter', 'nicotianae', 'strain BSc 4',
     '16S ribosomal RNA gene, partial sequence', makeRandomSequence(2))
 
 TESTDATA_3 = makeTestSequence(
-    'NR_947583.1', 'Glutamicibacter', 'arilaitensis strain Ind Int 3',
+    'NR_947583.1', 'Glutamicibacter', 'arilaitensis', 'strain Ind Int 3',
     '16S ribosomal RNA gene, type strain Foo', makeRandomSequence(3))
 
 
@@ -95,15 +97,16 @@ class NewDatabaseOneSequencePerSpeciesTestCase(unittest.TestCase):
 
     def test_process_sequence_description(self):
         for t in [TESTDATA_1, TESTDATA_2, TESTDATA_3]:
-            genus, species, accession, translated = bioscript.process_sequence_description(t.description)
-            #print('---------', t.description, file=sys.stderr)
-            self.assertEqual(genus, t.genus)
-            self.assertEqual(species, t.species)
-            self.assertEqual(accession, t.accession)
-            self.assertEqual(translated, t.translated)
+            # return ProcessedDescription(genus, species, strain, accession, description)
+            value = bioscript.process_sequence_description(t.description)
+            self.assertEqual(value.genus, t.genus)
+            self.assertEqual(value.species, t.species)
+            self.assertEqual(value.accession, t.accession)
+            self.assertEqual(value.description, t.translated)
 
     def test_get_best_sequence_each_species_1(self):
-        example = ''.join(t.fasta for t in [TESTDATA_1, TESTDATA_2, TESTDATA_3])
+        example = ''.join(t.fasta for t in [
+                          TESTDATA_1, TESTDATA_2, TESTDATA_3])
         self.assertEqual(
             run_test_get_best_sequence_each_species(example, None),
             fasta_string([(t.translated, t.sequence) for t in [TESTDATA_2, TESTDATA_3]]))
@@ -115,7 +118,8 @@ class NewDatabaseOneSequencePerSpeciesTestCase(unittest.TestCase):
             fasta_string([(TESTDATA_3.translated, TESTDATA_3.sequence)]))
 
     def test_get_best_sequence_each_species_2(self):
-        example = ''.join(t.fasta for t in [TESTDATA_1, TESTDATA_2, TESTDATA_3])
+        example = ''.join(t.fasta for t in [
+                          TESTDATA_1, TESTDATA_2, TESTDATA_3])
         foundException = False
         try:
             run_test_get_best_sequence_each_species(example, 'Foobar')
@@ -130,7 +134,8 @@ class NewDatabaseOneSequencePerSpeciesTestCase(unittest.TestCase):
             [(TESTDATA_1.accession, TESTDATA_1.translated, TESTDATA_1.sequence)])
 
     def test_get_best_sequence_2(self):
-        td = [(t.accession, t.translated, t.sequence) for t in [TESTDATA_1, TESTDATA_2]]
+        td = [(t.accession, t.translated, t.sequence)
+              for t in [TESTDATA_1, TESTDATA_2]]
         self.assertListEqual(
             bioscript.get_best_sequence(td, count=1),
             [(TESTDATA_2.accession, TESTDATA_2.translated, TESTDATA_2.sequence)])
@@ -142,7 +147,8 @@ class NewDatabaseOneSequencePerSpeciesTestCase(unittest.TestCase):
             (TESTDATA_3, (1, 1173.0/1187, 1, 1187)),
         ]
         for t, s in v:
-            self.assertEqual(s, bioscript.get_score(t.accession, t.description, t.sequence))
+            self.assertEqual(s, bioscript.get_score(
+                t.accession, t.description, t.sequence))
         self.assertTrue(v[1][1] > v[0][1])
         self.assertTrue(v[2][1] > v[0][1])
         self.assertTrue(v[2][1] > v[1][1])
