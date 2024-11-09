@@ -152,7 +152,7 @@ def get_best_sequence(values, count=1):
 
 
 # TODO(halcanry): Add unit tests for this function.
-def get_best_sequence_each_species(infile, outfile, genus, logger, count=1):
+def get_best_sequence_each_species(infile, outfile, genus, logger, count=1, skipNoSpecies=False):
     if genus:
         logger.info('Filtering by Genus %r', genus)
 
@@ -160,7 +160,7 @@ def get_best_sequence_each_species(infile, outfile, genus, logger, count=1):
         lambda: collections.defaultdict(list))
     for (description, sequence) in parse_fasta_format(infile):
         sourceCount += 1
-        if _noSpeciesRe.match(description):
+        if skipNoSpecies and _noSpeciesRe.match(description):
             logger.debug('NO SPECIES:  %s', description)
             continue
         info = process_sequence_description(description)
@@ -233,6 +233,12 @@ def parse_args(argv):
         type=int,
         default=1,
         help='How many top matches. (default: 1)')
+    parser.add_argument(
+        '-s',
+        '--skipnone',
+        default=False,
+        action='store_true',
+        help='if set, skip species with epithet "sp.". (default: False)')
     return parser.parse_args(argv)
 
 ###################################################################################################
@@ -244,7 +250,8 @@ def main():
                         level=args.loglevel.upper())
     try:
         get_best_sequence_each_species(
-            args.INFILE, args.outfile, args.genus, logging.getLogger(), args.count)
+            args.INFILE, args.outfile, args.genus, logging.getLogger(),
+            args.count, skipNoSpecies=args.skipnone)
     except Exception as e:
         logging.error(e)
         sys.exit(1)
